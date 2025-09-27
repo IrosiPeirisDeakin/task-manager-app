@@ -17,23 +17,6 @@ pipeline {
       }
     }
 
-    // stage('Build') {
-    //   steps {
-    //     dir("${BACKEND_DIR}") {
-    //       bat 'npm ci'
-    //       // create a Docker image artifact
-    //       bat "docker build -t ${DOCKER_IMAGE} ."
-    //       script {
-    //         // optionally push to Docker Hub if credentials available
-    //         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-    //           bat 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-    //           bat "docker push ${DOCKER_IMAGE}"
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
-
         stage('Build') {
         steps {
             dir("${BACKEND_DIR}") {
@@ -60,18 +43,6 @@ pipeline {
             }
         }
     }
-
-    // stage('Test') {
-    //     steps {
-    //         dir("${BACKEND_DIR}") {
-    //             // Install dependencies on host (Windows)
-    //             bat 'npm ci'
-
-    //             // Run tests on host
-    //             bat 'npm test'
-    //         }
-    //     }
-    // }
 
     stage('Test') {
     steps {
@@ -108,25 +79,33 @@ pipeline {
     }
 }
 
-    stage('Code Quality (SonarQube)') {
-      steps {
-        dir("${BACKEND_DIR}") {
-          withEnv(["SONAR_HOST_URL=${SONAR_HOST}", "SONAR_TOKEN=${SONAR_TOKEN}"]) {
-            bat '''
+    // stage('Code Quality (SonarQube)') {
+    //   steps {
+    //     dir("${BACKEND_DIR}") {
+    //       withEnv(["SONAR_HOST_URL=${SONAR_HOST}", "SONAR_TOKEN=${SONAR_TOKEN}"]) {
+    //         bat '''
              
-              if ! command -v sonar-scanner >/dev/null 2>&1; then
-                apk add --no-cache curl && \
-                mkdir -p /tmp/sonar && \
-                curl -sSLo /tmp/sonar/sonar-scanner-cli.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip && \
-                unzip /tmp/sonar/sonar-scanner-cli.zip -d /tmp/sonar && \
-                ln -s /tmp/sonar/sonar-scanner-*/bin/sonar-scanner /usr/local/bin/sonar-scanner
-              fi
-              sonar-scanner -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=${SONAR_HOST}
-            '''
-          }
+    //           if ! command -v sonar-scanner >/dev/null 2>&1; then
+    //             apk add --no-cache curl && \
+    //             mkdir -p /tmp/sonar && \
+    //             curl -sSLo /tmp/sonar/sonar-scanner-cli.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip && \
+    //             unzip /tmp/sonar/sonar-scanner-cli.zip -d /tmp/sonar && \
+    //             ln -s /tmp/sonar/sonar-scanner-*/bin/sonar-scanner /usr/local/bin/sonar-scanner
+    //           fi
+    //           sonar-scanner -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=${SONAR_HOST}
+    //         '''
+    //       }
+    //     }
+    //   }
+    // }
+
+    stage('Code Quality (SonarQube)') {
+    steps {
+        dir("${BACKEND_DIR}") {
+            bat 'docker-compose -f ../infra/docker-compose.yml run --rm backend sh -c "npm install -g sonar-scanner && sonar-scanner -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=${SONAR_HOST}"'
         }
-      }
     }
+}
 
     stage('Security Scan') {
       parallel {
