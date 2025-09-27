@@ -99,20 +99,20 @@ pipeline {
     //   }
     // }
 
-       stage('Code Quality (SonarQube)') {
-  steps {
-    dir("${BACKEND_DIR}") {
-      withSonarQubeEnv('SonarCloud') {   // 'SonarCloud' is the name you set in Jenkins config
-        bat "sonar-scanner \
-          -Dsonar.projectKey=IrosiPeirisDeakin_task-manager-app \
-          -Dsonar.organization=irosipeirisdeakin \
-          -Dsonar.sources=./src \
-          -Dsonar.host.url=https://sonarcloud.io \
-          -Dsonar.login=${SONAR_TOKEN}"
+        
+
+
+    stage('Code Quality (SonarQube)') {
+      steps {
+        dir("${BACKEND_DIR}") {
+          withSonarQubeEnv('SonarCloud') {
+            // Use Jenkins tool installation
+            def scannerHome = tool 'SonarScanner'
+            bat "${scannerHome}\\bin\\sonar-scanner"
+          }
+        }
       }
-    }
-  }
-}
+    }   
 
     stage('Security Scan') {
       parallel {
