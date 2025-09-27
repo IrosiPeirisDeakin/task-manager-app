@@ -20,14 +20,14 @@ pipeline {
     stage('Build') {
       steps {
         dir("${BACKEND_DIR}") {
-          sh 'npm ci'
+          bat 'npm ci'
           // create a Docker image artifact
-          sh "docker build -t ${DOCKER_IMAGE} ."
+          bat "docker build -t ${DOCKER_IMAGE} ."
           script {
             // optionally push to Docker Hub if credentials available
             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-              sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-              sh "docker push ${DOCKER_IMAGE}"
+              bat 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+              bat "docker push ${DOCKER_IMAGE}"
             }
           }
         }
@@ -37,7 +37,7 @@ pipeline {
     stage('Test') {
       steps {
         dir("${BACKEND_DIR}") {
-          sh 'npm test'
+          bat 'npm test'
         }
       }
     }
@@ -46,7 +46,7 @@ pipeline {
       steps {
         dir("${BACKEND_DIR}") {
           withEnv(["SONAR_HOST_URL=${SONAR_HOST}", "SONAR_TOKEN=${SONAR_TOKEN}"]) {
-            sh '''
+            bat '''
               # install sonar-scanner if needed
               if ! command -v sonar-scanner >/dev/null 2>&1; then
                 apk add --no-cache curl && \
@@ -68,26 +68,26 @@ pipeline {
           steps {
             dir("${BACKEND_DIR}") {
               withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
-                sh 'npm install -g snyk || true'
-                sh 'snyk auth $SNYK_TOKEN || true'
+                bat 'npm install -g snyk || true'
+                bat 'snyk auth $SNYK_TOKEN || true'
                 // test repo
-                sh 'snyk test --severity-threshold=high || true'
+                bat 'snyk test --severity-threshold=high || true'
               }
             }
           }
         }
         stage('Trivy (image scan)') {
           steps {
-            sh 'mkdir -p /tmp/trivy'
+            bat 'mkdir -p /tmp/trivy'
             // install trivy if missing
-            sh '''
+            bat '''
               if ! command -v trivy >/dev/null 2>&1; then
                 wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_$(uname -s)_$(uname -m).tar.gz -O /tmp/trivy/trivy.tar.gz
                 tar zxvf /tmp/trivy/trivy.tar.gz -C /tmp/trivy
                 mv /tmp/trivy/trivy /usr/local/bin/
               fi
             '''
-            sh "trivy image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE} || true"
+            bat "trivy image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE} || true"
           }
         }
       }
@@ -95,9 +95,9 @@ pipeline {
 
     stage('Deploy to Staging') {
       steps {
-        sh 'pwd; ls -la'
+        bat 'pwd; ls -la'
         // Deploy using docker-compose on a staging host (assuming Jenkins agent has docker)
-        sh '''
+        bat '''
           # bring up infra
           cd infra
           docker-compose up -d --build
@@ -112,8 +112,8 @@ pipeline {
       steps {
         script {
           // Example: push tag and run deployment script (placeholder)
-          sh "git tag -a v${env.BUILD_NUMBER} -m 'release ${env.BUILD_NUMBER}' || true"
-          sh "git push origin --tags || true"
+          bat "git tag -a v${env.BUILD_NUMBER} -m 'release ${env.BUILD_NUMBER}' || true"
+          bat "git push origin --tags || true"
           // Production deploy commands (e.g., eb deploy or heroku git push) go here
           echo "Production deployment step: manual or automated with cloud provider CLI"
         }
@@ -124,8 +124,8 @@ pipeline {
       steps {
         echo "Ensure /health and /ready endpoints are reachable and configure Prometheus/Grafana."
         // Optionally run a quick smoke check against health endpoint
-        sh 'sleep 5'
-        sh 'curl -f http://localhost:3000/health || echo "Health check failed"'
+        bat 'sleep 5'
+        bat 'curl -f http://localhost:3000/health || echo "Health check failed"'
       }
     }
   }
@@ -136,7 +136,7 @@ pipeline {
       archiveArtifacts artifacts: 'backend/**/*.log', allowEmptyArchive: true
     }
     failure {
-      mail to: 'team@example.com', subject: "Build ${env.BUILD_NUMBER} failed", body: "See Jenkins."
+      mail to: 'irosi.peiris@gmail.com', subject: "Build ${env.BUILD_NUMBER} failed", body: "See Jenkins."
     }
   }
 }
