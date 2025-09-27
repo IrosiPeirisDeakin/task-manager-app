@@ -63,7 +63,7 @@ pipeline {
 
         stage('Test') {
         steps {
-            dir("${BACKEND_DIR}") {
+            dir(".") {
                 // Start the database (detached)
                 bat 'docker-compose up -d db'
 
