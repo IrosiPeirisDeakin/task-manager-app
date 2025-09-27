@@ -103,7 +103,7 @@ pipeline {
   steps {
     dir("${BACKEND_DIR}") {
       withSonarQubeEnv('SonarCloud') {   // 'SonarCloud' is the name you set in Jenkins config
-        sh "sonar-scanner \
+        bat "sonar-scanner \
           -Dsonar.projectKey=IrosiPeirisDeakin_task-manager-app \
           -Dsonar.organization=irosipeirisdeakin \
           -Dsonar.sources=./src \
