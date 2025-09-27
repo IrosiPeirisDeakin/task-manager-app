@@ -106,13 +106,14 @@ pipeline {
       steps {
         dir("${BACKEND_DIR}") {
           withSonarQubeEnv('SonarCloud') {
-            // Use Jenkins tool installation
-            def scannerHome = tool 'SonarScanner'
-            bat "${scannerHome}\\bin\\sonar-scanner"
+            script {
+              def scannerHome = tool 'SonarScanner'
+              bat "${scannerHome}\\bin\\sonar-scanner"
+            }
           }
         }
       }
-    }   
+    }  
 
     stage('Security Scan') {
       parallel {
