@@ -61,25 +61,23 @@ pipeline {
         }
     }
 
-        stage('Test') {
+            stage('Test') {
         steps {
-            dir(".") {
+            dir(".") {  // Jenkins workspace root
                 // Start the database (detached)
-                bat 'docker-compose up -d db'
+                bat 'docker-compose -f infra/docker-compose.yml up -d db'
 
                 // Wait for Postgres to be ready
                 bat 'timeout /t 10'
 
                 // Run tests inside the backend container
-                // Using --rm so container is removed after test
-                bat 'docker-compose run --rm backend npm test'
+                bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm test'
 
                 // Stop containers after tests
-                bat 'docker-compose down'
+                bat 'docker-compose -f infra/docker-compose.yml down'
             }
         }
-    }
-
+}
     stage('Code Quality (SonarQube)') {
       steps {
         dir("${BACKEND_DIR}") {
