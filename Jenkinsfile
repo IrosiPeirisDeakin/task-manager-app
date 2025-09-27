@@ -62,44 +62,17 @@ pipeline {
     }
 
     stage('Test') {
-    steps {
-        dir(".") {  // run from workspace root
-            // Ensure old containers are down
-            bat 'docker-compose -f infra/docker-compose.yml down'
+        steps {
+            dir("${BACKEND_DIR}") {
+                // Install dependencies on host (Windows)
+                bat 'npm ci'
 
-            // Build backend image fresh (node_modules installed inside container)
-            bat 'docker-compose -f infra/docker-compose.yml build backend'
-
-            // Start Postgres database
-            bat 'docker-compose -f infra/docker-compose.yml up -d db'
-
-            // Wait until Postgres is ready (poll every 2s, max 30s)
-            bat '''
-                set READY=0
-                set COUNT=0
-                :loop
-                docker-compose -f infra/docker-compose.yml exec db pg_isready -U postgres > nul 2>&1
-                if %ERRORLEVEL%==0 (
-                    set READY=1
-                ) else (
-                    set /A COUNT+=1
-                    if %COUNT% GEQ 15 (
-                        echo Postgres not ready after 30 seconds, exiting...
-                        exit /b 1
-                    )
-                    timeout /t 2 /nobreak > nul
-                    goto loop
-                )
-            '''
-
-            // Run tests inside backend container
-            bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm test'
-
-            // Stop all containers after tests
-            bat 'docker-compose -f infra/docker-compose.yml down'
+                // Run tests on host
+                bat 'npm test'
+            }
         }
     }
-}
+
     stage('Code Quality (SonarQube)') {
       steps {
         dir("${BACKEND_DIR}") {
