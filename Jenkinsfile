@@ -1,0 +1,142 @@
+pipeline {
+  agent any
+
+  environment {
+    DOCKER_IMAGE = "irosithamasha/task-manager-app:${env.BUILD_NUMBER}"
+    BACKEND_DIR = "backend"
+    SONAR_HOST = credentials('sonar-host') // in Jenkins: secret text or username/password
+    SONAR_TOKEN = credentials('sonar-token') // token credential in jenkins
+    SNYK_TOKEN = credentials('snyk-token') // optional
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build') {
+      steps {
+        dir("${BACKEND_DIR}") {
+          sh 'npm ci'
+          // create a Docker image artifact
+          sh "docker build -t ${DOCKER_IMAGE} ."
+          script {
+            // optionally push to Docker Hub if credentials available
+            withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+              sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+              sh "docker push ${DOCKER_IMAGE}"
+            }
+          }
+        }
+      }
+    }
+
+    stage('Test') {
+      steps {
+        dir("${BACKEND_DIR}") {
+          sh 'npm test'
+        }
+      }
+    }
+
+    stage('Code Quality (SonarQube)') {
+      steps {
+        dir("${BACKEND_DIR}") {
+          withEnv(["SONAR_HOST_URL=${SONAR_HOST}", "SONAR_TOKEN=${SONAR_TOKEN}"]) {
+            sh '''
+              # install sonar-scanner if needed
+              if ! command -v sonar-scanner >/dev/null 2>&1; then
+                apk add --no-cache curl && \
+                mkdir -p /tmp/sonar && \
+                curl -sSLo /tmp/sonar/sonar-scanner-cli.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip && \
+                unzip /tmp/sonar/sonar-scanner-cli.zip -d /tmp/sonar && \
+                ln -s /tmp/sonar/sonar-scanner-*/bin/sonar-scanner /usr/local/bin/sonar-scanner
+              fi
+              sonar-scanner -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=${SONAR_HOST}
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Security Scan') {
+      parallel {
+        stage('Snyk') {
+          steps {
+            dir("${BACKEND_DIR}") {
+              withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                sh 'npm install -g snyk || true'
+                sh 'snyk auth $SNYK_TOKEN || true'
+                // test repo
+                sh 'snyk test --severity-threshold=high || true'
+              }
+            }
+          }
+        }
+        stage('Trivy (image scan)') {
+          steps {
+            sh 'mkdir -p /tmp/trivy'
+            // install trivy if missing
+            sh '''
+              if ! command -v trivy >/dev/null 2>&1; then
+                wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_$(uname -s)_$(uname -m).tar.gz -O /tmp/trivy/trivy.tar.gz
+                tar zxvf /tmp/trivy/trivy.tar.gz -C /tmp/trivy
+                mv /tmp/trivy/trivy /usr/local/bin/
+              fi
+            '''
+            sh "trivy image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE} || true"
+          }
+        }
+      }
+    }
+
+    stage('Deploy to Staging') {
+      steps {
+        sh 'pwd; ls -la'
+        // Deploy using docker-compose on a staging host (assuming Jenkins agent has docker)
+        sh '''
+          # bring up infra
+          cd infra
+          docker-compose up -d --build
+        '''
+      }
+    }
+
+    stage('Release to Production') {
+      when {
+        branch 'main'
+      }
+      steps {
+        script {
+          // Example: push tag and run deployment script (placeholder)
+          sh "git tag -a v${env.BUILD_NUMBER} -m 'release ${env.BUILD_NUMBER}' || true"
+          sh "git push origin --tags || true"
+          // Production deploy commands (e.g., eb deploy or heroku git push) go here
+          echo "Production deployment step: manual or automated with cloud provider CLI"
+        }
+      }
+    }
+
+    stage('Monitoring & Alerting') {
+      steps {
+        echo "Ensure /health and /ready endpoints are reachable and configure Prometheus/Grafana."
+        // Optionally run a quick smoke check against health endpoint
+        sh 'sleep 5'
+        sh 'curl -f http://localhost:3000/health || echo "Health check failed"'
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "Collecting artifacts and cleaning up..."
+      archiveArtifacts artifacts: 'backend/**/*.log', allowEmptyArchive: true
+    }
+    failure {
+      mail to: 'team@example.com', subject: "Build ${env.BUILD_NUMBER} failed", body: "See Jenkins."
+    }
+  }
+}
