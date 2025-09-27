@@ -68,7 +68,7 @@ pipeline {
                 bat 'docker-compose -f infra/docker-compose.yml up -d db'
 
                 // Wait for Postgres to be ready
-                bat 'timeout /t 10'
+                bat 'timeout /t 10 /nobreak'
 
                 // Run tests inside the backend container
                 bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm test'
