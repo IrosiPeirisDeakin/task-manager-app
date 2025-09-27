@@ -11,9 +11,9 @@ RUN npm ci
 # Copy application code
 COPY . .
 
-# Environment
-ENV NODE_ENV=production
-EXPOSE 3000
+# # Environment
+# ENV NODE_ENV=production
+# EXPOSE 3000
 
 # Default start command
 CMD ["node", "src/index.js"]

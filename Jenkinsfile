@@ -99,6 +99,7 @@ pipeline {
             '''
 
             // Run tests inside the backend container
+            bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm ci'
             bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm test'
 
             // Stop containers after tests
