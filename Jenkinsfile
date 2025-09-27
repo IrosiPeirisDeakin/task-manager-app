@@ -61,23 +61,24 @@ pipeline {
         }
     }
 
-    stage('Test') {
-    steps {
-        dir("${BACKEND_DIR}") {
-            // Start the database
-            bat 'docker-compose up -d db'
+        stage('Test') {
+        steps {
+            dir("${BACKEND_DIR}") {
+                // Start the database (detached)
+                bat 'docker-compose up -d db'
 
-            // Wait a few seconds for Postgres to be ready
-            bat 'timeout /t 10'
+                // Wait for Postgres to be ready
+                bat 'timeout /t 10'
 
-            // Run tests inside backend container
-            bat 'docker-compose run backend npm test'
+                // Run tests inside the backend container
+                // Using --rm so container is removed after test
+                bat 'docker-compose run --rm backend npm test'
 
-            // Optionally stop containers
-            bat 'docker-compose down'
+                // Stop containers after tests
+                bat 'docker-compose down'
+            }
         }
     }
-}
 
     stage('Code Quality (SonarQube)') {
       steps {
