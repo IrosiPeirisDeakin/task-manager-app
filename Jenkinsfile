@@ -99,13 +99,20 @@ pipeline {
     //   }
     // }
 
-    stage('Code Quality (SonarQube)') {
-    steps {
-        dir("${BACKEND_DIR}") {
-            bat 'docker-compose -f ../infra/docker-compose.yml run --rm backend sh -c "npm install -g sonar-scanner && sonar-scanner -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=${SONAR_HOST}"'
+        stage('Code Quality (SonarQube)') {
+        steps {
+            dir("${BACKEND_DIR}") {
+                bat """
+                    docker run --rm ^
+                    -e SONAR_HOST_URL=${SONAR_HOST} ^
+                    -e SONAR_LOGIN=${SONAR_TOKEN} ^
+                    -v %CD%:/usr/src ^
+                    sonarsource/sonar-scanner-cli ^
+                    -Dsonar.projectBaseDir=/usr/src
+                """
+            }
         }
     }
-}
 
     stage('Security Scan') {
       parallel {
