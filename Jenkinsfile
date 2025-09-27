@@ -17,21 +17,48 @@ pipeline {
       }
     }
 
-    stage('Build') {
-      steps {
-        dir("${BACKEND_DIR}") {
-          bat 'npm ci'
-          // create a Docker image artifact
-          bat "docker build -t ${DOCKER_IMAGE} ."
-          script {
-            // optionally push to Docker Hub if credentials available
-            withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-              bat 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-              bat "docker push ${DOCKER_IMAGE}"
+    // stage('Build') {
+    //   steps {
+    //     dir("${BACKEND_DIR}") {
+    //       bat 'npm ci'
+    //       // create a Docker image artifact
+    //       bat "docker build -t ${DOCKER_IMAGE} ."
+    //       script {
+    //         // optionally push to Docker Hub if credentials available
+    //         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+    //           bat 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+    //           bat "docker push ${DOCKER_IMAGE}"
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+
+        stage('Build') {
+        steps {
+            dir("${BACKEND_DIR}") {
+                // Install Node.js dependencies
+                bat 'npm ci'
+
+                // Build Docker image
+                bat "docker build -t ${DOCKER_IMAGE} ."
+
+                // Push to Docker Hub
+                script {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-creds', 
+                        usernameVariable: 'DOCKER_USER', 
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        // Correct Windows syntax (%VAR%) and multi-line bat
+                        bat """
+                            echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                            docker push ${DOCKER_IMAGE}
+                        """
+                    }
+                }
             }
-          }
         }
-      }
     }
 
     stage('Test') {
