@@ -113,7 +113,7 @@ pipeline {
         dir("${BACKEND_DIR}") {
           withEnv(["SONAR_HOST_URL=${SONAR_HOST}", "SONAR_TOKEN=${SONAR_TOKEN}"]) {
             bat '''
-              # install sonar-scanner if needed
+             
               if ! command -v sonar-scanner >/dev/null 2>&1; then
                 apk add --no-cache curl && \
                 mkdir -p /tmp/sonar && \
