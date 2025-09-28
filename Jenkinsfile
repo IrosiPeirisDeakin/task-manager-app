@@ -100,20 +100,23 @@ pipeline {
     // }
 
         
-
+    stage('Verify Config') {
+      steps {
+        bat 'dir'
+        bat 'type sonar-project.properties || echo "No sonar-project.properties found"'
+      }
+    }
 
     stage('Code Quality (SonarQube)') {
-  steps {
-    
-      withSonarQubeEnv('SonarCloud') {
-        script {
-          def scannerHome = tool 'SonarScanner'
-          bat "${scannerHome}\\bin\\sonar-scanner"
+        steps {
+            withSonarQubeEnv('SonarCloud') {
+              script {
+                def scannerHome = tool 'SonarScanner'
+                bat "${scannerHome}\\bin\\sonar-scanner"
+              }
+            }
         }
-      }
-   
-  }
-} 
+      } 
 
     stage('Security Scan') {
       parallel {
