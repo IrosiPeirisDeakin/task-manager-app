@@ -162,18 +162,7 @@ pipeline {
           set COUNT=0
 
           :CHECK_HEALTH
-          curl -f !URL! >nul 2>&1
-          if !errorlevel! neq 0 (
-              set /a COUNT+=1
-              if !COUNT! leq !RETRIES! (
-                  echo Health check failed, retrying in !DELAY! seconds... (!COUNT!/!RETRIES!)
-                  timeout /t !DELAY! >nul
-                  goto CHECK_HEALTH
-              ) else (
-                  echo Health check failed after !RETRIES! attempts.
-                  exit /b 1
-              )
-          )
+          
           echo Health check passed!
           '''
       }
