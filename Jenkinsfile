@@ -6,7 +6,7 @@ pipeline {
     BACKEND_DIR = "backend"
     SONAR_HOST = credentials('sonar-host') // in Jenkins: secret text or username/password
     SONAR_TOKEN = credentials('sonar-token') // token credential in jenkins
-    SNYK_TOKEN = credentials('snyk-token') // optional
+    SNYK_TOKEN = credentials('snyk-token') 
   }
 
   stages {
@@ -47,7 +47,7 @@ pipeline {
     stage('Test') {
       steps {
           dir(".") {  // run from workspace root
-              // Start the database (detached)
+              // Start the database 
               bat 'docker-compose -f infra/docker-compose.yml up -d db'
 
               // Wait until Postgres is ready (poll every 2 seconds, max 30 seconds)
@@ -70,8 +70,8 @@ pipeline {
               '''
 
               // Run tests inside the backend container
-              //bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm ci'
-              //bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm test'
+              bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm ci'
+              bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm test'
 
               // Stop containers after tests
               bat 'docker-compose -f infra/docker-compose.yml down'
@@ -122,7 +122,7 @@ pipeline {
 
     stage('Deploy to Staging') {
       steps {
-        // Print working directory and list files (Windows CMD style)
+        // Print working directory and list files
         bat 'cd'
         bat 'dir'
 
@@ -162,7 +162,24 @@ pipeline {
           set COUNT=0
 
           :CHECK_HEALTH
-          
+          curl -f !URL! >nul 2>&1
+                if !errorlevel! neq 0 (
+                    set /a COUNT+=1
+                    if !COUNT! leq !RETRIES! (
+                        echo Health check failed, retrying in !DELAY! seconds... (!COUNT!/!RETRIES!)
+                        timeout /t !DELAY! >nul
+                        goto CHECK_HEALTH
+                    ) else (
+                        echo Health check failed after !RETRIES! attempts.
+                        echo Sending alert to Datadog...
+                        curl -X POST "https://api.datadoghq.com/api/v1/events?api_key=%DATADOG_API_KEY%" ^
+                        -H "Content-Type: application/json" ^
+                        -d "{\"title\":\"Production Alert: Health Check Failed\",\"text\":\"The application health check at %URL% failed.\",\"priority\":\"normal\",\"tags\":[\"jenkins\",\"healthcheck\"]}"
+                        
+                        echo Health check failed! Please check the application.
+                        exit /b 1
+                    )
+                )
           echo Health check passed!
           '''
       }
