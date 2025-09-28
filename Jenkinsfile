@@ -90,37 +90,6 @@ pipeline {
         }
       } 
 
-    // stage('Security Scan') {
-    //   parallel {
-    //     stage('Snyk') {
-    //       steps {
-    //         dir("${BACKEND_DIR}") {
-    //           withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
-    //             bat 'npm install -g snyk || true'
-    //             bat 'snyk auth $SNYK_TOKEN || true'
-    //             // test repo
-    //             bat 'snyk test --severity-threshold=high || true'
-    //           }
-    //         }
-    //       }
-    //     }
-    //     stage('Trivy (image scan)') {
-    //       steps {
-    //         bat 'mkdir -p /tmp/trivy'
-    //         // install trivy if missing
-    //         bat '''
-    //           if ! command -v trivy >/dev/null 2>&1; then
-    //             wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_$(uname -s)_$(uname -m).tar.gz -O /tmp/trivy/trivy.tar.gz
-    //             tar zxvf /tmp/trivy/trivy.tar.gz -C /tmp/trivy
-    //             mv /tmp/trivy/trivy /usr/local/bin/
-    //           fi
-    //         '''
-    //         bat "trivy image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE} || true"
-    //       }
-    //     }
-    //   }
-    // }
-
     stage('Security Scan') {
       parallel {
         stage('Snyk') {
@@ -153,10 +122,12 @@ pipeline {
 
     stage('Deploy to Staging') {
       steps {
-        bat 'pwd; ls -la'
-        // Deploy using docker-compose on a staging host (assuming Jenkins agent has docker)
+        // Print working directory and list files (Windows CMD style)
+        bat 'cd'
+        bat 'dir'
+
+        // Deploy using docker-compose (assuming Docker Desktop + docker-compose installed)
         bat '''
-          # bring up infra
           cd infra
           docker-compose up -d --build
         '''
