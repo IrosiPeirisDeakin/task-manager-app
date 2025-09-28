@@ -151,12 +151,34 @@ pipeline {
 
     stage('Monitoring & Alerting') {
       steps {
-        echo "Ensure /health and /ready endpoints are reachable and configure Prometheus/Grafana."
-        // Optionally run a quick smoke check against health endpoint
-        bat 'sleep 5'
-        bat 'curl -f http://localhost:3000/health || echo "Health check failed"'
+          echo "Checking /health endpoint..."
+          bat '''
+          @echo off
+          setlocal enabledelayedexpansion
+
+          set URL=http://localhost:3000/health
+          set RETRIES=12
+          set DELAY=5
+          set COUNT=0
+
+          :CHECK_HEALTH
+          curl -f !URL! >nul 2>&1
+          if !errorlevel! neq 0 (
+              set /a COUNT+=1
+              if !COUNT! leq !RETRIES! (
+                  echo Health check failed, retrying in !DELAY! seconds... (!COUNT!/!RETRIES!)
+                  timeout /t !DELAY! >nul
+                  goto CHECK_HEALTH
+              ) else (
+                  echo Health check failed after !RETRIES! attempts.
+                  exit /b 1
+              )
+          )
+          echo Health check passed!
+          '''
       }
     }
+
   }
 
   post {
