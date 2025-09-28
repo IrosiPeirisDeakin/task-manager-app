@@ -138,26 +138,16 @@ pipeline {
           }
         }
 
-        stage('Trivy (image scan)') {
-          when {
-            expression { !isUnix() }  // skip on Windows agents
-          }
-          steps {
-            sh '''
-              # Ensure Trivy is installed
-              if ! command -v trivy >/dev/null 2>&1; then
-                echo "Installing Trivy..."
-                mkdir -p /tmp/trivy
-                wget -q https://github.com/aquasecurity/trivy/releases/latest/download/trivy_$(uname -s)_$(uname -m).tar.gz -O /tmp/trivy/trivy.tar.gz
-                tar -xzf /tmp/trivy/trivy.tar.gz -C /tmp/trivy
-                mv /tmp/trivy/trivy /usr/local/bin/
-              fi
-
-              # Scan Docker image
-              trivy image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE} || true
-            '''
-          }
-        }
+          stage('Trivy (image scan)') {
+              when {
+                expression { isUnix() }   // only run on Linux
+              }
+              steps {
+                sh '''
+                  trivy image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE} || true
+                '''
+              }
+            }
       }
     }
 
