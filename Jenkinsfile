@@ -168,4 +168,4 @@ pipeline {
       mail to: 'irosi.peiris@gmail.com', subject: "Build ${env.BUILD_NUMBER} failed", body: "See Jenkins."
     }
   }
-
+}
