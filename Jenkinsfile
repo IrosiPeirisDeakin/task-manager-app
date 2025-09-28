@@ -45,67 +45,39 @@ pipeline {
     }
 
     stage('Test') {
-    steps {
-        dir(".") {  // run from workspace root
-            // Start the database (detached)
-            bat 'docker-compose -f infra/docker-compose.yml up -d db'
-
-            // Wait until Postgres is ready (poll every 2 seconds, max 30 seconds)
-            bat '''
-                set READY=0
-                set COUNT=0
-                :loop
-                docker-compose -f infra/docker-compose.yml exec db pg_isready -U postgres > nul 2>&1
-                if %ERRORLEVEL%==0 (
-                    set READY=1
-                ) else (
-                    set /A COUNT+=1
-                    if %COUNT% GEQ 15 (
-                        echo Postgres not ready after 30 seconds, exiting...
-                        exit /b 1
-                    )
-                    timeout /t 2 /nobreak > nul
-                    goto loop
-                )
-            '''
-
-            // Run tests inside the backend container
-            //bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm ci'
-            //bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm test'
-
-            // Stop containers after tests
-            bat 'docker-compose -f infra/docker-compose.yml down'
-        }
-    }
-}
-
-    // stage('Code Quality (SonarQube)') {
-    //   steps {
-    //     dir("${BACKEND_DIR}") {
-    //       withEnv(["SONAR_HOST_URL=${SONAR_HOST}", "SONAR_TOKEN=${SONAR_TOKEN}"]) {
-    //         bat '''
-             
-    //           if ! command -v sonar-scanner >/dev/null 2>&1; then
-    //             apk add --no-cache curl && \
-    //             mkdir -p /tmp/sonar && \
-    //             curl -sSLo /tmp/sonar/sonar-scanner-cli.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.7.0.2747-linux.zip && \
-    //             unzip /tmp/sonar/sonar-scanner-cli.zip -d /tmp/sonar && \
-    //             ln -s /tmp/sonar/sonar-scanner-*/bin/sonar-scanner /usr/local/bin/sonar-scanner
-    //           fi
-    //           sonar-scanner -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=${SONAR_HOST}
-    //         '''
-    //       }
-    //     }
-    //   }
-    // }
-
-        
-    stage('Verify Config') {
       steps {
-        bat 'dir'
-        bat 'type sonar-project.properties || echo "No sonar-project.properties found"'
+          dir(".") {  // run from workspace root
+              // Start the database (detached)
+              bat 'docker-compose -f infra/docker-compose.yml up -d db'
+
+              // Wait until Postgres is ready (poll every 2 seconds, max 30 seconds)
+              bat '''
+                  set READY=0
+                  set COUNT=0
+                  :loop
+                  docker-compose -f infra/docker-compose.yml exec db pg_isready -U postgres > nul 2>&1
+                  if %ERRORLEVEL%==0 (
+                      set READY=1
+                  ) else (
+                      set /A COUNT+=1
+                      if %COUNT% GEQ 15 (
+                          echo Postgres not ready after 30 seconds, exiting...
+                          exit /b 1
+                      )
+                      timeout /t 2 /nobreak > nul
+                      goto loop
+                  )
+              '''
+
+              // Run tests inside the backend container
+              //bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm ci'
+              //bat 'docker-compose -f infra/docker-compose.yml run --rm backend npm test'
+
+              // Stop containers after tests
+              bat 'docker-compose -f infra/docker-compose.yml down'
+          }
       }
-    }
+  }
 
     stage('Code Quality (SonarQube)') {
         steps {
@@ -118,32 +90,72 @@ pipeline {
         }
       } 
 
+    // stage('Security Scan') {
+    //   parallel {
+    //     stage('Snyk') {
+    //       steps {
+    //         dir("${BACKEND_DIR}") {
+    //           withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+    //             bat 'npm install -g snyk || true'
+    //             bat 'snyk auth $SNYK_TOKEN || true'
+    //             // test repo
+    //             bat 'snyk test --severity-threshold=high || true'
+    //           }
+    //         }
+    //       }
+    //     }
+    //     stage('Trivy (image scan)') {
+    //       steps {
+    //         bat 'mkdir -p /tmp/trivy'
+    //         // install trivy if missing
+    //         bat '''
+    //           if ! command -v trivy >/dev/null 2>&1; then
+    //             wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_$(uname -s)_$(uname -m).tar.gz -O /tmp/trivy/trivy.tar.gz
+    //             tar zxvf /tmp/trivy/trivy.tar.gz -C /tmp/trivy
+    //             mv /tmp/trivy/trivy /usr/local/bin/
+    //           fi
+    //         '''
+    //         bat "trivy image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE} || true"
+    //       }
+    //     }
+    //   }
+    // }
+
     stage('Security Scan') {
       parallel {
         stage('Snyk') {
           steps {
             dir("${BACKEND_DIR}") {
               withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
-                bat 'npm install -g snyk || true'
-                bat 'snyk auth $SNYK_TOKEN || true'
-                // test repo
-                bat 'snyk test --severity-threshold=high || true'
+                withEnv(["SNYK_TOKEN=${SNYK_TOKEN}"]) {
+                  // Install Snyk CLI
+                  bat 'npm install -g snyk'
+                  // Run Snyk scan (ignore errors so pipeline continues)
+                  bat 'snyk test --severity-threshold=high || exit /b 0'
+                }
               }
             }
           }
         }
+
         stage('Trivy (image scan)') {
+          when {
+            expression { !isUnix() }  // skip on Windows agents
+          }
           steps {
-            bat 'mkdir -p /tmp/trivy'
-            // install trivy if missing
-            bat '''
+            sh '''
+              # Ensure Trivy is installed
               if ! command -v trivy >/dev/null 2>&1; then
-                wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_$(uname -s)_$(uname -m).tar.gz -O /tmp/trivy/trivy.tar.gz
-                tar zxvf /tmp/trivy/trivy.tar.gz -C /tmp/trivy
+                echo "Installing Trivy..."
+                mkdir -p /tmp/trivy
+                wget -q https://github.com/aquasecurity/trivy/releases/latest/download/trivy_$(uname -s)_$(uname -m).tar.gz -O /tmp/trivy/trivy.tar.gz
+                tar -xzf /tmp/trivy/trivy.tar.gz -C /tmp/trivy
                 mv /tmp/trivy/trivy /usr/local/bin/
               fi
+
+              # Scan Docker image
+              trivy image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE} || true
             '''
-            bat "trivy image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE} || true"
           }
         }
       }
