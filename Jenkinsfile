@@ -104,14 +104,14 @@ pipeline {
 
     stage('Code Quality (SonarQube)') {
   steps {
-    dir("${BACKEND_DIR}") {
+    
       withSonarQubeEnv('SonarCloud') {
         script {
           def scannerHome = tool 'SonarScanner'
           bat "${scannerHome}\\bin\\sonar-scanner"
         }
       }
-    }
+   
   }
 } 
 
